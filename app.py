@@ -120,14 +120,24 @@ with st.sidebar:
     )
     st.divider()
 
-    page = st.selectbox(
-        "Navigasi Halaman",
-        ["🏠 Home",
-         "📊 Eksplorasi Data",
-         "🤖 Sistem Rekomendasi",
-         "🔬 Analisis Rules",
-         "📈 Evaluasi Metode",
-         "💼 Implikasi Manajerial"]
+   # Tentukan daftar halaman berdasarkan mode yang dipilih
+    if mode == "👔 Executive Dashboard":
+        pilihan_halaman = [
+            "🏠 Home", 
+            "🤖 Sistem Rekomendasi", 
+            "💼 Implikasi Manajerial"
+        ]
+    else:
+        pilihan_halaman = [
+            "🏠 Home",
+            "📊 Eksplorasi Data",
+            "🤖 Sistem Rekomendasi",
+            "🔬 Analisis Rules",
+            "📈 Evaluasi Metode",
+            "💼 Implikasi Manajerial"
+        ]
+
+    page = st.selectbox("Navigasi Halaman", pilihan_halaman)
     )
     st.divider()
     st.caption(f"📦 Total data: {len(df_raw):,} baris")
