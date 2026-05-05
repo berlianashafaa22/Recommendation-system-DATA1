@@ -120,7 +120,7 @@ with st.sidebar:
     )
     st.divider()
 
-   # Tentukan daftar halaman berdasarkan mode yang dipilih
+    # Tentukan daftar halaman berdasarkan mode yang dipilih
     if mode == "👔 Executive Dashboard":
         pilihan_halaman = [
             "🏠 Home", 
@@ -138,7 +138,6 @@ with st.sidebar:
         ]
 
     page = st.selectbox("Navigasi Halaman", pilihan_halaman)
-    )
     st.divider()
     st.caption(f"📦 Total data: {len(df_raw):,} baris")
     st.caption(f"🌍 {df_raw['Country'].nunique()} negara")
