@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -185,12 +186,9 @@ if page == "🏠 Home":
     st.markdown("---")
     st.markdown("### 🚀 Mulai Eksplorasi")
     col1, col2, col3 = st.columns(3)
-    col1.info("📊 **Eksplorasi Data**
-Lihat distribusi dan pola dalam data")
-    col2.success("🤖 **Sistem Rekomendasi**
-Coba rekomendasi produk secara interaktif")
-    col3.warning("💼 **Implikasi Manajerial**
-Temuan dan rekomendasi aksi bisnis")
+    col1.info("📊 **Eksplorasi Data**\nLihat distribusi dan pola dalam data")
+    col2.success("🤖 **Sistem Rekomendasi**\nCoba rekomendasi produk secara interaktif")
+    col3.warning("💼 **Implikasi Manajerial**\nTemuan dan rekomendasi aksi bisnis")
 
 # ─────────────────────────────────────────
 # HALAMAN 2: EDA
