@@ -1,18 +1,12 @@
 
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
-import plotly.graph_objects as go
-from mlxtend.frequent_patterns import apriori, association_rules
-from mlxtend.preprocessing import TransactionEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from matplotlib_venn import venn2
-import networkx as nx
+import ast
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -49,25 +43,16 @@ def preprocess(df):
     return df_clean
 
 @st.cache_data
-def build_rules(df_clean):
-    basket = df_clean.groupby("InvoiceNo")["Description"].apply(list).reset_index()
-    basket.columns = ["InvoiceNo", "Items"]
-    te = TransactionEncoder()
-    te_array = te.fit_transform(basket["Items"])
-    basket_encoded = pd.DataFrame(te_array, columns=te.columns_)
-    frequent_itemsets = apriori(basket_encoded, min_support=0.02, use_colnames=True, max_len=2)
-    rules = association_rules(frequent_itemsets, metric="lift", min_threshold=1.0)
-    rules = rules.sort_values("lift", ascending=False).reset_index(drop=True)
-    return rules
-
-@st.cache_data
-def build_cb(df_clean):
-    products = df_clean[["StockCode","Description"]].drop_duplicates("Description").reset_index(drop=True)
-    tfidf = TfidfVectorizer(stop_words="english")
-    tfidf_matrix = tfidf.fit_transform(products["Description"])
-    cb_sim = cosine_similarity(tfidf_matrix)
-    cb_sim_df = pd.DataFrame(cb_sim, index=products["Description"], columns=products["Description"])
-    return cb_sim_df
+def load_models():
+    # Load tabel rules Apriori yang sudah dihitung di Colab
+    rules = pd.read_csv("rules_result.csv")
+    # Kembalikan string list dari CSV menjadi list Python beneran
+    rules['antecedents'] = rules['antecedents'].apply(ast.literal_eval)
+    rules['consequents'] = rules['consequents'].apply(ast.literal_eval)
+    
+    # Load matriks Content-Based yang sudah dihitung
+    cb_sim_df = pd.read_csv("similarity_result.csv", index_col=0)
+    return rules, cb_sim_df
 
 # Fungsi rekomendasi
 def apriori_only(product_name, rules, top_n=5):
@@ -114,11 +99,10 @@ def hybrid_recommend(product_name, rules, cb_sim_df, top_n=5, w_apr=0.6, w_cb=0.
 # ─────────────────────────────────────────
 # LOAD DATA
 # ─────────────────────────────────────────
-with st.spinner("Memuat dan memproses data..."):
+with st.spinner("Memuat dashboard (super cepat!)..."):
     df_raw = load_data()
     df_clean = preprocess(df_raw)
-    rules = build_rules(df_clean)
-    cb_sim_df = build_cb(df_clean)
+    rules, cb_sim_df = load_models()
 
 # ─────────────────────────────────────────
 # SIDEBAR
