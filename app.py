@@ -467,7 +467,7 @@ elif page == "📈 Evaluasi Metode":
             title="Coverage per Metode"
         )
         fig.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        fig.update_layout(showlegend=False, ylim=[0, 115])
+        fig.update_layout(showlegend=False, yaxis_range=[0, 115])
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
