@@ -49,7 +49,7 @@ def load_models():
     # Kembalikan string list dari CSV menjadi list Python beneran
     rules['antecedents'] = rules['antecedents'].apply(ast.literal_eval)
     rules['consequents'] = rules['consequents'].apply(ast.literal_eval)
-    
+
     # Load matriks Content-Based yang sudah dihitung
     cb_sim_df = pd.read_csv("similarity_result.csv", index_col=0)
     return rules, cb_sim_df
