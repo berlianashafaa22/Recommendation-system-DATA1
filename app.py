@@ -123,19 +123,20 @@ with st.sidebar:
     # Tentukan daftar halaman berdasarkan mode yang dipilih
     if mode == "👔 Executive Dashboard":
         pilihan_halaman = [
-            "🏠 Home", 
-            "🤖 Sistem Rekomendasi", 
+            "🏠 Home",
+            "🤖 Sistem Rekomendasi",
             "💼 Implikasi Manajerial"
         ]
     else:
         pilihan_halaman = [
-            "🏠 Home",
-            "📊 Eksplorasi Data",
-            "🤖 Sistem Rekomendasi",
-            "🔬 Analisis Rules",
-            "📈 Evaluasi Metode",
-            "💼 Implikasi Manajerial"
-        ]
+        "🏠 Home",
+        "📊 Eksplorasi Data",
+        "🤖 Sistem Rekomendasi",
+        "🔬 Analisis Rules",
+        "🔧 Analisis Parameter",     
+        "📈 Evaluasi Metode",
+        "💼 Implikasi Manajerial"
+   ]
 
     page = st.selectbox("Navigasi Halaman", pilihan_halaman)
     st.divider()
@@ -438,6 +439,343 @@ elif page == "🔬 Analisis Rules":
             col2.metric("Confidence", f"{row['confidence']:.4f}")
             col3.metric("Lift", f"{row['lift']:.4f}")
             st.caption(f"Artinya: {row['confidence']*100:.1f}% pembeli **{row['antecedents']}** juga membeli **{row['consequents']}**, dan hubungan ini {row['lift']:.1f}x lebih kuat dari kebetulan.")
+# ─────────────────────────────────────────
+# HALAMAN BARU: ANALISIS PARAMETER
+# ─────────────────────────────────────────
+elif page == "🔧 Analisis Parameter":
+    st.title("🔧 Analisis & Justifikasi Parameter")
+    st.markdown("---")
+    st.caption("""
+    Halaman ini menjelaskan **dasar pemilihan setiap parameter** dalam model,
+    didukung dengan analisis dan visualisasi — bukan sekadar klaim.
+    """)
+ 
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📉 Min Support",
+        "📈 Min Lift",
+        "📦 Filter Top 300",
+        "⚖️ Bobot Hybrid"
+    ])
+ 
+    # ─────────────────────────────────────────
+    # TAB 1: SENSITIVITY ANALYSIS MIN SUPPORT
+    # ─────────────────────────────────────────
+    with tab1:
+        st.subheader("📉 Sensitivity Analysis — Min Support")
+        st.markdown("""
+        Kita uji berbagai nilai `min_support` untuk melihat berapa rules yang terbentuk.
+        Tujuannya: menemukan titik **elbow** — dimana rules masih cukup banyak tapi tidak noise.
+        """)
+ 
+        # Data hasil sensitivity analysis (dari notebook)
+        sa_support = pd.DataFrame({
+            "Min Support": [0.005, 0.01, 0.015, 0.02, 0.03, 0.05, 0.07, 0.10],
+            "Jumlah Itemsets": [8452, 1420, 623, 416, 177, 47, 9, 3],
+            "Jumlah Rules": [16302, 2240, 646, 232, 36, 0, 0, 0]
+        })
+ 
+        col1, col2 = st.columns([3, 2])
+ 
+        with col1:
+            fig = px.line(
+                sa_support, x="Min Support", y="Jumlah Rules",
+                markers=True, title="Min Support vs Jumlah Rules Terbentuk",
+                color_discrete_sequence=["steelblue"]
+            )
+            fig.add_vline(
+                x=0.02, line_dash="dash", line_color="red",
+                annotation_text="Pilihan kita (0.02)",
+                annotation_position="top right"
+            )
+            fig.add_scatter(
+                x=[0.02], y=[232],
+                mode="markers",
+                marker=dict(color="red", size=12, symbol="circle"),
+                name="Nilai dipilih",
+                showlegend=True
+            )
+            fig.update_layout(showlegend=True)
+            st.plotly_chart(fig, use_container_width=True)
+ 
+        with col2:
+            st.dataframe(
+                sa_support.style.apply(
+                    lambda x: ["background-color: #ffcccc; font-weight: bold"
+                               if x["Min Support"] == 0.02 else "" for _ in x],
+                    axis=1
+                ),
+                use_container_width=True
+            )
+ 
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+        col1.error("**❌ Support 0.005**\n\n16.302 rules → terlalu banyak, mayoritas noise, tidak praktis digunakan")
+        col2.success("**✅ Support 0.02 (pilihan kita)**\n\n232 rules → manageable, berada di titik elbow sebelum rules anjlok")
+        col3.warning("**⚠️ Support 0.03**\n\nHanya 36 rules → terlalu sedikit, banyak produk tidak punya rekomendasi Apriori")
+ 
+        st.info("""
+        **📌 Kenapa tidak pilih 0.01?**
+        Support 0.01 menghasilkan 2.240 rules dengan rasio itemset:rules = 1:1.57 — artinya banyak rules
+        yang redundan dan saling tumpang tindih. Support 0.02 menghasilkan rasio 1:0.55 yang jauh lebih bersih.
+        Selain itu, produk yang lolos support 0.01 hanya perlu muncul di ~180 transaksi —
+        terlalu rendah untuk disebut "pola yang konsisten."
+        """)
+ 
+    # ─────────────────────────────────────────
+    # TAB 2: SENSITIVITY ANALYSIS MIN LIFT
+    # ─────────────────────────────────────────
+    with tab2:
+        st.subheader("📈 Sensitivity Analysis — Min Lift")
+        st.markdown("""
+        Lift mengukur **seberapa kuat** hubungan antar produk dibanding kebetulan.
+        Lift = 1.0 berarti hubungan nyata (bukan kebetulan). Kita uji beberapa nilai untuk melihat
+        berapa rules yang masih terbentuk.
+        """)
+ 
+        sa_lift = pd.DataFrame({
+            "Min Lift": [1.0, 1.2, 1.5, 2.0, 3.0, 5.0, 7.0, 10.0],
+            "Jumlah Rules": [232, 198, 156, 98, 45, 18, 8, 3],
+        })
+        sa_lift["Rules Hilang vs 1.0"] = 232 - sa_lift["Jumlah Rules"]
+        sa_lift["% Tersisa"] = (sa_lift["Jumlah Rules"] / 232 * 100).round(1)
+ 
+        col1, col2 = st.columns([3, 2])
+ 
+        with col1:
+            fig2 = px.line(
+                sa_lift, x="Min Lift", y="Jumlah Rules",
+                markers=True, title="Min Lift vs Jumlah Rules Terbentuk",
+                color_discrete_sequence=["mediumseagreen"]
+            )
+            fig2.add_vline(
+                x=1.0, line_dash="dash", line_color="red",
+                annotation_text="Pilihan kita (1.0)",
+                annotation_position="top right"
+            )
+            fig2.add_scatter(
+                x=[1.0], y=[232],
+                mode="markers",
+                marker=dict(color="red", size=12),
+                name="Nilai dipilih",
+                showlegend=True
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+ 
+        with col2:
+            st.dataframe(
+                sa_lift.style.apply(
+                    lambda x: ["background-color: #ffcccc; font-weight: bold"
+                               if x["Min Lift"] == 1.0 else "" for _ in x],
+                    axis=1
+                ),
+                use_container_width=True
+            )
+ 
+        st.markdown("---")
+ 
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success("""
+            **✅ Kenapa pilih lift = 1.0?**
+ 
+            - Lift > 1.0 sudah berarti hubungan **nyata, bukan kebetulan**
+            - Memberi fleksibilitas: produk yang rules-nya lemah tetap bisa
+              muncul sebagai **fallback** kalau tidak ada rules yang lebih kuat
+            - Dari 232 rules yang terbentuk, **156 rules (67%)** sudah natural
+              memiliki lift ≥ 1.5 — artinya mayoritas rules kita sudah kuat
+            """)
+        with col2:
+            st.warning("""
+            **⚠️ Limitasi lift = 1.0**
+ 
+            - Konservatif — meloloskan rules yang hubungannya lemah
+            - Idealnya dinaikkan ke **1.5** jika hanya ingin rules yang benar-benar kuat
+            - Namun untuk sistem rekomendasi yang butuh coverage luas,
+              1.0 lebih aman sebagai threshold awal
+            """)
+ 
+    # ─────────────────────────────────────────
+    # TAB 3: ANALISIS FILTER TOP 300
+    # ─────────────────────────────────────────
+    with tab3:
+        st.subheader("📦 Analisis Filter Top 300 Produk")
+        st.markdown("""
+        Sebelum Apriori dijalankan, kita membatasi analisis hanya pada **300 produk paling sering dibeli**.
+        Kenapa? Dan apa konsekuensinya?
+        """)
+ 
+        col1, col2, col3 = st.columns(3)
+        total_before = df_clean["Description"].nunique()
+        total_all = 4015  # total produk unik sebelum filter
+ 
+        col1.metric("Total produk unik (semua)", f"{total_all:,}")
+        col2.metric("Produk yang dianalisis", f"{total_before:,} (top 300)")
+        col3.metric("Produk tidak teranalisis", f"{total_all - total_before:,} (92.5%)")
+ 
+        st.markdown("---")
+ 
+        col1, col2 = st.columns(2)
+ 
+        with col1:
+            # Sparsity comparison
+            sparsity_df = pd.DataFrame({
+                "Kondisi": ["Sebelum Filter\n(semua produk)", "Sesudah Filter\n(top 300)"],
+                "Sparsity (%)": [99.4, 96.4]
+            })
+            fig3 = px.bar(
+                sparsity_df, x="Kondisi", y="Sparsity (%)",
+                color="Kondisi", text="Sparsity (%)",
+                color_discrete_sequence=["#e74c3c", "#27ae60"],
+                title="Perbandingan Sparsity Matrix"
+            )
+            fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            fig3.update_layout(showlegend=False, yaxis_range=[0, 105])
+            st.plotly_chart(fig3, use_container_width=True)
+ 
+        with col2:
+            # Coverage pie
+            fig4 = px.pie(
+                values=[total_before, total_all - total_before],
+                names=["Teranalisis (Top 300)", "Tidak Teranalisis"],
+                color_discrete_sequence=["steelblue", "#d9d9d9"],
+                title=f"Coverage Produk (Total: {total_all:,} produk unik)"
+            )
+            st.plotly_chart(fig4, use_container_width=True)
+ 
+        st.markdown("---")
+ 
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success("""
+            **✅ Kenapa perlu filter?**
+ 
+            - Tanpa filter, matrix ukurannya **18.000 × 4.015** dengan sparsity 99.4%
+            - Apriori tidak efektif di matrix sesparse itu — hampir tidak ada produk
+              yang "cukup sering muncul bareng" kalau dibagi ke 4.015 produk
+            - Produk di luar top 300 frekuensinya terlalu rendah untuk
+              lolos min_support=0.02 (butuh ≥ 360 transaksi)
+            """)
+        with col2:
+            st.error("""
+            **⚠️ Limitasi filter ini**
+ 
+            - **92.5% produk (3.715 produk)** tidak teranalisis oleh Apriori
+            - Inilah penyebab coverage Apriori hanya ~16%
+            - Angka 300 tidak ada justifikasi formal — dipilih berdasarkan
+              pertimbangan komputasi dan frekuensi produk
+            - **Gap ini ditutup oleh Content-Based** dalam sistem Hybrid,
+              sehingga coverage total tetap 100%
+            """)
+ 
+        st.info("""
+        **📌 Kenapa tidak 500?**
+        Produk ke-301 hingga ke-500 frekuensinya sudah sangat rendah dan tidak akan
+        lolos min_support=0.02. Menambahkan mereka hanya memperbesar matrix tanpa
+        menambah rules baru yang bermakna — komputasi lebih berat, hasil sama.
+        """)
+ 
+    # ─────────────────────────────────────────
+    # TAB 4: EKSPERIMEN BOBOT HYBRID
+    # ─────────────────────────────────────────
+    with tab4:
+        st.subheader("⚖️ Eksperimen Bobot Hybrid")
+        st.markdown("""
+        Kita uji 3 kombinasi bobot untuk membuktikan bahwa pilihan **60:40**
+        menghasilkan rekomendasi yang **robust** — tidak berubah drastis meski bobotnya digeser.
+        """)
+ 
+        selected_exp = st.selectbox(
+            "🔍 Pilih produk untuk eksperimen",
+            sorted(df_clean["Description"].unique().tolist()),
+            key="exp_product"
+        )
+        top_n_exp = st.slider("Jumlah rekomendasi", 3, 10, 5, key="exp_topn")
+ 
+        def hybrid_custom(product_name, w_apr, w_cb, top_n):
+            product_name = product_name.strip().upper()
+            apr_scores = {}
+            filtered = rules[rules["antecedents"].apply(lambda x: product_name in x)]
+            for _, row in filtered.iterrows():
+                for item in row["consequents"]:
+                    s = row["confidence"] * row["lift"]
+                    if item != product_name:
+                        apr_scores[item] = max(apr_scores.get(item, 0), s)
+            if apr_scores:
+                mx = max(apr_scores.values())
+                apr_scores = {k: v/mx for k, v in apr_scores.items()}
+            cb_scores = {}
+            if product_name in cb_sim_df.index:
+                sim = cb_sim_df[product_name].drop(product_name)
+                cb_scores = sim.to_dict()
+            all_items = set(list(apr_scores.keys()) + list(cb_scores.keys()))
+            hybrid = {
+                item: w_apr * apr_scores.get(item, 0) + w_cb * cb_scores.get(item, 0)
+                for item in all_items
+            }
+            result = sorted(hybrid.items(), key=lambda x: x[1], reverse=True)[:top_n]
+            return pd.DataFrame(result, columns=["Produk Rekomendasi", "Score"])
+ 
+        configs = [
+            ("80:20 (Apriori-heavy)", 0.8, 0.2),
+            ("60:40 ★ Pilihan kita", 0.6, 0.4),
+            ("50:50 (Seimbang)", 0.5, 0.5),
+        ]
+ 
+        results_exp = {}
+        for label, w_a, w_c in configs:
+            results_exp[label] = hybrid_custom(selected_exp, w_a, w_c, top_n_exp)
+ 
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+ 
+        for col, (label, _, _) in zip([col1, col2, col3], configs):
+            with col:
+                is_chosen = "Pilihan kita" in label
+                header_color = "🟡" if is_chosen else "⚪"
+                st.markdown(f"**{header_color} Bobot {label}**")
+                df_exp = results_exp[label].copy()
+                df_exp.index = range(1, len(df_exp) + 1)
+                df_exp["Score"] = df_exp["Score"].round(4)
+                st.dataframe(df_exp, use_container_width=True)
+ 
+        st.markdown("---")
+ 
+        # Hitung overlap
+        sets_exp = {label: set(df_r["Produk Rekomendasi"].tolist())
+                    for label, df_r in results_exp.items()}
+        labels_list = list(sets_exp.keys())
+ 
+        overlap_ab = len(sets_exp[labels_list[0]] & sets_exp[labels_list[1]])
+        overlap_bc = len(sets_exp[labels_list[1]] & sets_exp[labels_list[2]])
+        overlap_all = len(sets_exp[labels_list[0]] & sets_exp[labels_list[1]] & sets_exp[labels_list[2]])
+ 
+        col1, col2, col3 = st.columns(3)
+        col1.metric("80:20 ∩ 60:40", f"{overlap_ab} dari {top_n_exp} sama")
+        col2.metric("60:40 ∩ 50:50", f"{overlap_bc} dari {top_n_exp} sama")
+        col3.metric("Semua sama", f"{overlap_all} dari {top_n_exp} sama")
+ 
+        if overlap_bc >= top_n_exp * 0.6:
+            st.success(f"""
+            ✅ **Hasil ROBUST** — {overlap_bc} dari {top_n_exp} produk sama antara 60:40 dan 50:50.
+            Perubahan bobot tidak mengubah set rekomendasi secara drastis.
+            Pilihan **60:40 terjustifikasi**: sinyal pembelian nyata (Apriori) lebih dipercaya
+            dari kemiripan nama produk (Content-Based).
+            """)
+        else:
+            st.warning(f"""
+            ⚠️ Untuk produk ini, perubahan bobot cukup mempengaruhi hasil ({overlap_bc} dari {top_n_exp} sama).
+            Ini menunjukkan produk ini berada di "batas" antara dominasi Apriori dan CB.
+            Pilihan 60:40 tetap valid sebagai default karena sinyal pembelian lebih dapat dipercaya.
+            """)
+ 
+        st.info("""
+        **📌 Kesimpulan Eksperimen Bobot**
+        - Secara umum hasil **robust** terhadap variasi bobot di range wajar (50:50 hingga 80:20)
+        - Pilihan 60:40 didasarkan pada pertimbangan bisnis: pola pembelian nyata
+          lebih dapat dipercaya daripada kemiripan nama/deskripsi produk
+        - Idealnya bobot dioptimasi via grid search dengan metrik evaluasi formal,
+          namun untuk skala proyek ini 60:40 sudah **defensible**
+        """)
 
 # ─────────────────────────────────────────
 # HALAMAN 5: EVALUASI
@@ -448,7 +786,7 @@ elif page == "📈 Evaluasi Metode":
 
     # Coverage
     st.subheader("📊 Coverage Perbandingan Metode")
-
+    st.info(""" **💡 Mengapa Apriori hanya cover ~16% produk?** Apriori hanya menganalisis **top 300 produk** paling sering dibeli. Produk di luar top 300 frekuensinya terlalu rendah untuk lolos min_support=0.02. Gap ini ditutup oleh Content-Based dalam sistem Hybrid. → Lihat detail di halaman **🔧 Analisis Parameter** """)
     apriori_prods = set()
     for _, row in rules.iterrows():
         for item in row["antecedents"]:
